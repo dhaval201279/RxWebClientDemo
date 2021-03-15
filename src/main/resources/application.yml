@@ -1,0 +1,6 @@
+spring:
+    application:
+        name: webclient-demo-application
+
+server:
+    port: 8090
