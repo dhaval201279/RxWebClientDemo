@@ -18,6 +18,7 @@ import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.*;
 import reactor.netty.resources.ConnectionProvider;
+import reactor.netty.resources.LoopResources;
 
 import java.time.Duration;
 
@@ -54,6 +55,12 @@ public class WebClientConfig {
 
     @Value("${webclient.http.keep.alive.connection:true}")
     private Boolean keepAlive;
+
+    @Value("${webclient.http.selector.thread.count:1}")
+    private Integer selectorThreadCount;
+
+    @Value("${webclient.http.worker.thread.count:4}")
+    private Integer workerThreadCount;
 
     @Autowired
     private final WebClientSslHelper webClientSslHelper;
@@ -132,16 +139,20 @@ public class WebClientConfig {
             nettyHttpClient = HttpClient
                                 .create(connProvider)
                                 .secure(sslContextSpec -> sslContextSpec.sslContext(webClientSslHelper.getSslContext()))
-                                .tcpConfiguration(tcpClient ->
-                                    tcpClient
-                                        .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, connectionTimeoutMillis)
-                                        .option(ChannelOption.TCP_NODELAY, true)
-                                        .doOnConnected(connection ->
-                                            connection
-                                                .addHandlerLast(new ReadTimeoutHandler(readTimeout))
-                                                .addHandlerLast(new WriteTimeoutHandler(writeTimeout))
-                                        )
-                                )
+                                .tcpConfiguration(tcpClient -> {
+                                    LoopResources loop = LoopResources.create("webclient-event-loop",
+                                        selectorThreadCount, workerThreadCount, Boolean.TRUE);
+
+                                    return tcpClient
+                                            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, connectionTimeoutMillis)
+                                            .option(ChannelOption.TCP_NODELAY, true)
+                                            .doOnConnected(connection -> {
+                                                connection
+                                                    .addHandlerLast(new ReadTimeoutHandler(readTimeout))
+                                                    .addHandlerLast(new WriteTimeoutHandler(writeTimeout));
+                                            })
+                                            .runOn(loop);
+                                })
                                 .keepAlive(keepAlive)
                                 .wiretap(Boolean.TRUE);
 
