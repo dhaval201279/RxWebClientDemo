@@ -1,5 +1,6 @@
 package com.its.RxWebClientDemo.infrastructure;
 
+import com.its.RxWebClientDemo.exception.BackendServiceException;
 import com.its.RxWebClientDemo.service.exception.RemoteServiceUnavailableException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,8 +13,8 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
-import reactor.retry.Retry;
-import reactor.retry.RetryContext;
+import reactor.util.retry.Retry;
+import reactor.util.retry.*;
 
 import java.time.Duration;
 
@@ -43,12 +44,12 @@ public class DownstreamAdapterImpl implements DownstreamAdapter {
                             })
                             .bodyToMono(String.class)
                             .retryWhen(Retry
-                                        .onlyIf(this::is5xxServerError)
-                                        .exponentialBackoff(Duration.ofSeconds(webClientConfig.getRetryFirstBackOff()),
-                                                Duration.ofSeconds(webClientConfig.getRetryMaxBackOff()))
-                                        .retryMax(webClientConfig.getMaxRetryAttempts())
-                                        .doOnRetry(this::processOnRetry)
-                            )
+                                            .backoff(webClientConfig.getMaxRetryAttempts(),
+                                                    Duration.ofSeconds(webClientConfig.getRetryMaxBackOff()))
+                                            .filter(ex -> is5xxServerError(ex))
+                                            .onRetryExhaustedThrow((retryBackoffSpec, retrySignal) ->
+                                                    new BackendServiceException("Max retry attempts reached",
+                                                            HttpStatus.SERVICE_UNAVAILABLE.value())))
                             .doOnError(this::processInvocationErrors);
 
             log.info("Card alias received from backend : {} ", cardAliasMono);
@@ -72,21 +73,24 @@ public class DownstreamAdapterImpl implements DownstreamAdapter {
         }
     }
 
-    private boolean is5xxServerError(RetryContext<Object> retryContext) {
-        return retryContext.exception() instanceof HttpClientErrorException ||
-                retryContext.exception() instanceof HttpServerErrorException ||
-                retryContext.exception() instanceof RuntimeException;
+    private boolean is5xxServerError(Throwable ex) {
+        boolean eligible = false;
+        if (ex instanceof BackendServiceException) {
+            BackendServiceException se = (BackendServiceException)ex;
+            eligible = (se.getStatusCode() > 499 && se.getStatusCode() < 600);
+        }
+        return eligible;
     }
 
     private void populateHttpHeaders(HttpHeaders httpHeaders) {
         log.debug("Populating http headers : {}", httpHeaders);
     }
 
-    private void processOnRetry(RetryContext<Object> retryContext) {
+    /*private void processOnRetry(RetryContext<Object> retryContext) {
         log.warn("Recovering from Downstream invocation failure by initiating Retry");
         log.info("Retrying Downstream invocation via WebClient. Retry configurations - " +
             "Max Retry attempts : {}, First back off duration : {}," + "Max back off duration : {}",
                 webClientConfig.getMaxRetryAttempts(), webClientConfig.getRetryFirstBackOff(), webClientConfig.getRetryMaxBackOff());
-    }
+    }*/
 
 }
