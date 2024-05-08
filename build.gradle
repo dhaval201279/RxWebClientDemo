@@ -1,12 +1,21 @@
 plugins {
-	id 'org.springframework.boot' version '2.2.7.RELEASE'
-	id 'io.spring.dependency-management' version '1.0.9.RELEASE'
+	// M-1.1 : Replace 2.2.7 to 2.7.18
+	//id 'org.springframework.boot' version '2.2.7.RELEASE'
+	id 'org.springframework.boot' version '3.2.5'
+	id 'io.spring.dependency-management' version '1.1.5'
 	id 'java'
+	// M-2.1
+	id("org.openrewrite.rewrite") version("6.12.0")
+
+}
+// M-2.2 : Add below 3 lines
+rewrite {
+	activeRecipe("org.openrewrite.java.spring.boot3.UpgradeSpringBoot_3_2")
 }
 
 group = 'com.its'
 version = '0.0.1-SNAPSHOT'
-sourceCompatibility = '1.8'
+sourceCompatibility = '21'
 
 configurations {
 	developmentOnly
@@ -33,6 +42,8 @@ dependencies {
 		exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
 	}
 	testImplementation 'io.projectreactor:reactor-test'
+	// M-2.3 : Add below line
+	rewrite("org.openrewrite.recipe:rewrite-spring:5.8.0")
 }
 
 test {

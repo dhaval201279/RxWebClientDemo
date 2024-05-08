@@ -133,8 +133,10 @@ public class WebClientConfig {
                                                 .pendingAcquireTimeout(Duration.ofMillis(acquireTimeoutMillis))
                                                 .build();
 
-            log.info("ConnectionProvider instantiated with max connections : {} and " +
-                "acquire time out in millis : {}", maxConnections, acquireTimeoutMillis);
+            log.info("""
+                ConnectionProvider instantiated with max connections : {} and \
+                acquire time out in millis : {}\
+                """, maxConnections, acquireTimeoutMillis);
 
             nettyHttpClient = HttpClient
                                 .create(connProvider)
@@ -156,8 +158,10 @@ public class WebClientConfig {
                                 .keepAlive(keepAlive)
                                 .wiretap(Boolean.TRUE);
 
-            log.info("Netty based http client successfully instantiated with connectTimeoutMillis : {}," +
-                "readTimeout : {} and writeTimeout : {}", connectionTimeoutMillis, readTimeout, writeTimeout);
+            log.info("""
+                Netty based http client successfully instantiated with connectTimeoutMillis : {},\
+                readTimeout : {} and writeTimeout : {}\
+                """, connectionTimeoutMillis, readTimeout, writeTimeout);
         } catch (Exception ex) {
             log.error("Unable to instantiate Netty based HttpClient. Error Message : {}, Error Cause : {}, Stracktrace : {}",
                     ex.getMessage(), ex.getCause(), ex.getStackTrace());

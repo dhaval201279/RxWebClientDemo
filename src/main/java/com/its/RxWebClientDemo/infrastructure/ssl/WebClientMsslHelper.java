@@ -7,7 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 //import org.apache.commons.codec.binary.Base64;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
+import org.springframework.util.ObjectUtils;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.TrustManagerFactory;
@@ -63,11 +63,11 @@ public class WebClientMsslHelper implements WebClientSslHelper {
         try {
             KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
             String strKeyStore = System.getenv(JAVA_KEYSTORE_PROPERTY);
-            if (StringUtils.isEmpty(strKeyStore)) {
+            if (ObjectUtils.isEmpty(strKeyStore)) {
                 throw new IOException("Environment variable KEYSTORE is empty.");
             }
             String strKeyStorePassword = System.getenv(JAVA_KEYSTORE_CRED_PROPERTY);
-            if (StringUtils.isEmpty(strKeyStore)) {
+            if (ObjectUtils.isEmpty(strKeyStore)) {
                 throw new IOException("Environment variable KEYSTORE_PASSWORD is empty.");
             }
             //InputStream keyStoreInput = new ByteArrayInputStream(Base64.decode(strKeyStore));
@@ -85,13 +85,13 @@ public class WebClientMsslHelper implements WebClientSslHelper {
         try {
             KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
             String strTrustStore = System.getenv(JAVA_TRUSTSTORE_PROPERTY);
-            if (StringUtils.isEmpty(strTrustStore)) {
+            if (ObjectUtils.isEmpty(strTrustStore)) {
                 throw new IOException("Environment variable TRUSTSTORE is empty.");
             }
             //InputStream trustStoreInput = new ByteArrayInputStream(Base64.decode(strTrustStore));
             InputStream trustStoreInput = new ByteArrayInputStream(strTrustStore.getBytes());
             String strTrustStorePassword = System.getenv(JAVA_TRUSTSTORE_CRED_PROPERTY);
-            if (StringUtils.isEmpty(strTrustStorePassword)) {
+            if (ObjectUtils.isEmpty(strTrustStorePassword)) {
                 throw new IOException("Environment variable TRUSTSTORE_PASSWORD is empty.");
             }
             //trustStore.load(trustStoreInput, new String(Base64.decode(strTrustStorePassword), Charset.forName("UTF-8")).toCharArray());

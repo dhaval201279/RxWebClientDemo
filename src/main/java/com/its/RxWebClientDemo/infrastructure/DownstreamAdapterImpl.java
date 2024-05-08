@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
@@ -30,7 +31,7 @@ public class DownstreamAdapterImpl implements DownstreamAdapter {
 
     @Override
     public Mono<String> generateAlias(String cardNo) {
-        log.info("3 Entering generateAlias and fetching alias for cardNo = {} by invoking downstream system ", cardNo);
+        log.info("Entering generateAlias and fetching alias for cardNo = {} by invoking downstream system ", cardNo);
         Mono<String> cardAliasMono = null;
         try {
             cardAliasMono = restWebClient
@@ -38,7 +39,7 @@ public class DownstreamAdapterImpl implements DownstreamAdapter {
                             .uri("/{cardNo}", cardNo)
                             .headers(this::populateHttpHeaders)
                             .retrieve()
-                            .onStatus(HttpStatus::is4xxClientError, clientResponse -> {
+                            .onStatus(this::is4xxClientError, clientResponse -> {
                                 log.error("Client error from downstream system");
                                 return Mono.error(new HttpClientErrorException(HttpStatus.BAD_REQUEST));
                             })
@@ -55,15 +56,24 @@ public class DownstreamAdapterImpl implements DownstreamAdapter {
             log.info("Card alias received from backend : {} ", cardAliasMono);
             return cardAliasMono;
         } catch (Exception ex) {
-            log.error("Exception occurred - exception message : {} & stacktrace : {} whilst invoking downstream system " +
+            log.error(
+                    "Exception occurred - exception message : {} & stacktrace : {} whilst invoking downstream system " +
                     "for card = {} ", ex.getMessage(), ex.getStackTrace(), cardNo);
             throw new RemoteServiceUnavailableException("Service Unavailable");
         }
     }
 
+    private boolean is4xxClientError(HttpStatusCode httpStatusCode) {
+        boolean is4xxClientError = false;
+        if(httpStatusCode.is4xxClientError()){
+            is4xxClientError = true;
+        }
+        return is4xxClientError;
+    }
+
     private void processInvocationErrors(Throwable ex) {
-        log.error("Downstream Invocation Error - Downstream failure cause : {}, Throwable Class : {}, Stacktrace : {}, " +
-                "   Exception message : {}", ex.getCause(), ex.getClass(), ex.getStackTrace(), ex.getMessage());
+        log.error(" Downstream Invocation Error - Downstream failure cause : {}, Throwable Class : {}, Stacktrace : {}, " +
+                   "Exception message : {} ", ex.getCause(), ex.getClass(), ex.getStackTrace(), ex.getMessage());
         if(ex instanceof HttpClientErrorException || ex instanceof HttpServerErrorException)  {
             log.error("Downstream exception response : {}", ((HttpStatusCodeException) ex).getResponseBodyAsString());
             throw new RemoteServiceUnavailableException("Service Unavailable");
@@ -75,8 +85,7 @@ public class DownstreamAdapterImpl implements DownstreamAdapter {
 
     private boolean is5xxServerError(Throwable ex) {
         boolean eligible = false;
-        if (ex instanceof BackendServiceException) {
-            BackendServiceException se = (BackendServiceException)ex;
+        if (ex instanceof BackendServiceException se) {
             eligible = (se.getStatusCode() > 499 && se.getStatusCode() < 600);
         }
         return eligible;
